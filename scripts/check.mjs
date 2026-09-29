@@ -8,6 +8,8 @@ import { fileURLToPath } from "node:url";
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const withDialog = process.argv.includes("--dialog");
+// Each run writes into its own subfolder so re-running never needs an overwrite approval.
+const run = `run-${new Date().toISOString().slice(0, 19).replace(/[:T]/g, "-")}`;
 
 const transport = new StdioClientTransport({
   command: process.execPath,
@@ -48,12 +50,12 @@ await expectOk("create folder hello-test", "create_directory", { path: "hello-te
 await expectOk("select project hello-test", "set_project", { path: "hello-test" }, "Current project");
 await expectOk("create files", "write_files", {
   files: [
-    { path: "hello.txt", content: "Hello from Gemini Bridge!\n" },
-    { path: "src/notes.md", content: "# Notes\n\nThis folder was created by the self-test.\n" },
+    { path: `${run}/hello.txt`, content: "Hello from Gemini Bridge!\n" },
+    { path: `${run}/notes.md`, content: "# Notes\n\nThis folder was created by the self-test.\n" },
   ],
 });
-await expectOk("read file back", "read_file", { path: "hello.txt" }, "Hello from Gemini Bridge!");
-await expectOk("run safe command: ls", "run_command", { command: ["ls", "-la"] }, "hello.txt");
+await expectOk("read file back", "read_file", { path: `${run}/hello.txt` }, "Hello from Gemini Bridge!");
+await expectOk("run safe command: ls", "run_command", { command: ["ls", "-la", run] }, "hello.txt");
 await expectOk("get_context", "get_context", {}, "## File tree");
 
 console.log("\n— safety checks (these MUST be refused) —");
@@ -68,7 +70,7 @@ await expectRefused("single-string command", "run_command", { command: ["ls -la 
 
 if (withDialog) {
   console.log("\n— approval dialog demo: a dialog will appear. Try 'Show full', then Approve or Deny —");
-  const r = await call("write_files", { files: [{ path: "hello.txt", content: "Hello from Gemini Bridge!\nThis line was added after approval.\n" }] });
+  const r = await call("write_files", { files: [{ path: `${run}/hello.txt`, content: "Hello from Gemini Bridge!\nThis line was added after approval.\n" }] });
   console.log(`      result: ${text(r).split("\n")[0]}`);
 }
 
